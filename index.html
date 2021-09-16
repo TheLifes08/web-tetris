@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+
+<html lang="Russian">
+	<head>
+		<title>Tetris Game</title>
+		<meta charset="utf-8">
+
+		<script type="text/javascript">
+			let username = "Player";
+
+			function onChangeUsername() {
+				username = document.getElementById("username-input").value;
+
+				if (username === "") {
+					username = "Player";
+				}
+
+				window.localStorage["tetris.username"] = username;
+			}
+
+			function redirectToGame() {
+				window.location.href = "https://localhost/main.html";
+			}
+		</script>
+	</head>
+
+	<body>
+		<div style="width: 200px; margin: auto;">
+			<div style="padding: 2px;">
+				<label for="username-input">
+					Введите имя игрока:<br>
+				</label>
+			</div>
+			<div style="padding: 2px;">
+				<input style="width: 192px" id="username-input" type="text" placeholder="Player" onchange="onChangeUsername()"><br>
+			</div>
+			<div style="padding: 2px;">
+				<button style="width: 200px;" onclick="redirectToGame()">Играть</button>
+			</div>
+		</div>
+	</body>
+</html>

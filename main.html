@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+
+<html lang="Russian">
+	<head>
+		<title>Tetris Game</title>
+		<meta charset="utf-8">
+		<script src="game.js" type="text/javascript"></script>
+	</head>
+
+	<body onload="onPageLoad()">
+		<div style="display: flex; ">
+			<div>
+				<canvas id="game" width="301" height="601" style="border: 1px solid black;">
+					Ваш браузер не поддерживает элемент canvas.
+				</canvas>
+			</div>
+			<div style="padding-left: 25px;">
+				<h4>Имя игрока: <span id="username-span"></span><br></h4>
+				<p>
+					Текущий уровень: 1
+				</p>
+				<p>
+					Управление:<br>
+					Q - повернуть фигуру на 90 градусов против часовой стрелки;<br>
+					E - повернуть фигуру на 90 градусов по часовой стрелке;<br>
+					A - подвинуть фигуру влево;<br>
+					D - подвинуть фигуру вправо;<br>
+					S - уронить фигуру;
+				</p>
+				<div>
+					Следующая фигура:
+					<canvas id="next-figure-canvas" width="151" height="151" style="border: 1px solid black;">
+						Ваш браузер не поддерживает элемент canvas.
+					</canvas>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>
