@@ -1,200 +1,210 @@
-const blockX = 30;
-const blockY = 30;
-const blockColors = ["red", "green", "blue", "yellow"]
+class Vector2D {
+    constructor(x = 0, y = 0) {
+        this.x = x;
+        this.y = y;
+    }
+}
+
+const Size = Vector2D;
+const Offset = Vector2D;
+const Position = Vector2D;
+const blockSize = new Size(30, 30);
+const blockColors = ["red", "green", "blue", "yellow"];
+const fallTimeout = 500;
+const updateTimeout = 50;
+const leftRightTimeout = 200;
+const tetraminoSpawnZoneSizeY = 4;
 
 let keyPressed = false;
 let fallKeyPressed = false;
 let leftKeyPressed = false;
 let rightKeyPressed = false;
-let field = {
-    size: {x: 0, y: 0},
-    rows: [],
-    object: undefined,
-    nextObject: undefined
-};
-
+let score = undefined;
+let field = undefined;
+let fallingTetramino = undefined;
+let nextFallingTetramino = undefined;
 let leftInterval = undefined;
 let rightInterval = undefined;
-let fallInterval = setInterval(onLowerFigure, 500);
+let fallInterval = undefined;
+let updateInterval = undefined;
 
-setInterval(onUpdate, 50);
+class Block {
+    constructor(occupied = false, color = "white") {
+        this.occupied = occupied;
+        this.color = color;
+    }
+}
+
+class Field {
+    constructor(size = new Size()) {
+        this.size = new Size(size.x, size.y);
+        this.rows = new Array(this.size.y);
+
+        for (let y = 0; y < this.size.y; ++y) {
+            this.rows[y] = new Array(this.size.x);
+            for (let x = 0; x < this.size.x; ++x) {
+                this.rows[y][x] = new Block();
+            }
+        }
+    }
+
+    getBlock(x, y) {
+        if (x < 0 || y < 0 || x >= field.size.x || y >= field.size.y) {
+            return undefined;
+        }
+
+        return this.rows[y][x];
+    }
+
+    setBlock(x, y, value) {
+        if (x < 0 || y < 0 || x >= field.size.x || y >= field.size.y) {
+            return false;
+        }
+
+        this.rows[y][x] = value;
+
+        return true;
+    }
+}
+
+class Tetramino {
+    constructor(type = 0, position = new Position(), color = getRandomColor()) {
+        this.type = type
+        this.position = new Position(position.x, position.y);
+        this.color = color;
+
+        switch (type) {
+            case 0:
+                this.offsets = [new Offset(0, 0),
+                                new Offset(1, 0),
+                                new Offset(-1, 0),
+                                new Offset(0, -1)];
+                break;
+            case 1:
+                this.offsets = [new Offset(0, 0),
+                                new Offset(0, -1),
+                                new Offset(0, 1),
+                                new Offset(1, 1)];
+                break;
+            case 2:
+                this.offsets = [new Offset(0, 0),
+                                new Offset(1, 0),
+                                new Offset(-1, 0),
+                                new Offset(2, 0)];
+                break;
+            case 3:
+                this.offsets = [new Offset(0, 0),
+                                new Offset(1, 1),
+                                new Offset(1, 0),
+                                new Offset(0, 1)];
+                break;
+            case 4:
+                this.offsets = [new Offset(0, 0),
+                                new Offset(0, -1),
+                                new Offset(1, 0),
+                                new Offset(1, 1)];
+                break;
+            case 5:
+                this.offsets = [new Offset(0, 0),
+                                new Offset(0, -1),
+                                new Offset(-1, 0),
+                                new Offset(-1, 1)];
+                break;
+            case 6:
+                this.offsets = [new Offset(0, 0),
+                                new Offset(0, -1),
+                                new Offset(0, 1),
+                                new Offset(-1, 1)];
+                break;
+            default:
+                this.offsets = undefined;
+        }
+    }
+
+    static createRandomTetramino(position) {
+        return new Tetramino(random(0, 6), position, getRandomColor());
+    }
+}
+
+function onPageLoad() {
+    score = 0;
+    document.title = "Tetris Game - " + localStorage["tetris.username"];
+    document.getElementById("username-span").textContent = localStorage["tetris.username"];
+
+    field = new Field(new Size(10, 20 + tetraminoSpawnZoneSizeY));
+    fallingTetramino = Tetramino.createRandomTetramino(new Position(random(2, field.size.x - 3), 1));
+    nextFallingTetramino = Tetramino.createRandomTetramino(new Position(random(2, field.size.x - 3), 1));
+    fallInterval = setInterval(onTetraminoFall, fallTimeout);
+    updateInterval = setInterval(onUpdate, updateTimeout);
+
+    onUpdate();
+}
 
 function random(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 function getColor(type) {
-    if (type >= 0 && type < blockColors.length) {
-        return blockColors[type];
-    } else {
-        return undefined;
-    }
+    return blockColors[type];
 }
 
-function createFigure(type) {
-    switch (type) {
-        case 0:
-            return {offsets: [{x: 0, y: 0}, {x: 1, y: 0}, {x: -1, y: 0}, {x: 0, y: -1}]};
-        case 1:
-            return {offsets: [{x: 0, y: 0}, {x: 0, y: -1}, {x: 0, y: 1}, {x: 1, y: 1}]};
-        case 2:
-            return {offsets: [{x: 0, y: 0}, {x: 1, y: 0}, {x: -1, y: 0}, {x: 2, y: 0}]};
-        case 3:
-            return {offsets: [{x: 0, y: 0}, {x: 1, y: 1}, {x: 1, y: 0}, {x: 0, y: 1}]};
-        case 4:
-            return {offsets: [{x: 0, y: 0}, {x: 0, y: -1}, {x: 1, y: 0}, {x: 1, y: 1}]};
-        case 5:
-            return {offsets: [{x: 0, y: 0}, {x: 0, y: -1}, {x: -1, y: 0}, {x: -1, y: 1}]};
-        case 6:
-            return {offsets: [{x: 0, y: 0}, {x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 1}]};
-        default:
-            return undefined;
-    }
+function getRandomColor() {
+    return getColor(random(0, blockColors.length - 1));
 }
 
-function createRandomObject() {
-    let object = {
-        position: {x: random(2, field.size.x - 3), y: -1},
-        color: getColor(random(0, 3)),
-        figure: createFigure(random(0, 6))
-    };
+function rotateTetramino(tetramino, angle) {
+    angle = angle % 360;
 
-    switch (random(1, 4)) {
-        case 1:
-            rotateObject(object, "left");
-            rotateObject(object, "left");
-            break;
-        case 2:
-            rotateObject(object, "right");
-            break;
-        case 3:
-            rotateObject(object, "left");
-            break;
+    if (angle === 0 || tetramino.type === 3) {
+        return;
     }
 
-    return object;
-}
+    for (let i = 0; i < tetramino.offsets.length; ++i) {
+        const offset = tetramino.offsets[i];
+        let temp;
 
-function rotateObject(object, direction) {
-    for (let i = 0; i < object.figure.offsets.length; ++i) {
-        let offset = object.figure.offsets[i];
-        if (direction === "left") {
-            let temp = offset.x * -1;
-            offset.x = offset.y;
-            offset.y = temp;
-        } else if (direction === "right") {
-            let temp = offset.x;
+        if (angle === -90 || angle === 270) {
+            temp = offset.y;
+            offset.y = offset.x * -1;
+            offset.x = temp;
+        } else if (angle === 90 || angle === -270) {
+            temp = offset.x;
             offset.x = offset.y * -1;
             offset.y = temp;
+        } else if (angle === 180 || angle === -180) {
+            offset.x = offset.x * -1;
+            offset.y = offset.y * -1;
+        } else {
+            throw "Unsupported angle";
         }
     }
 }
 
-function copyObject(object) {
-    let clone = {
-        position: {x: object.position.x, y: object.position.y},
-        color: object.color,
-        figure: {offsets: []}
-    };
+function placeTetramino() {
+    for (let i = 0; i < fallingTetramino.offsets.length; ++i) {
+        const offset = fallingTetramino.offsets[i];
+        const blockX = fallingTetramino.position.x + offset.x;
+        const blockY = fallingTetramino.position.y + offset.y;
 
-    for (let i = 0; i < object.figure.offsets.length; ++i) {
-        let position = {x: 0, y: 0};
-        position.x = object.figure.offsets[i].x;
-        position.y = object.figure.offsets[i].y;
-        clone.figure.offsets.push(position);
+        field.getBlock(blockX, blockY).occupied = true;
+        field.getBlock(blockX, blockY).color = fallingTetramino.color;
     }
 
-    return clone;
+    checkRowsFullness();
 }
 
-function placeObject() {
-    for (let i = 0; i < field.object.figure.offsets.length; ++i) {
-        let offset = field.object.figure.offsets[i];
-        let blockX = field.object.position.x + offset.x;
-        let blockY = field.object.position.y + offset.y;
-
-        field.rows[blockY][blockX].block = true;
-        field.rows[blockY][blockX].color = field.object.color;
-    }
-}
-
-function nextObject() {
-    field.object = field.nextObject;
-    field.nextObject = createRandomObject();
-}
-
-function onPageLoad() {
-    document.title = "Tetris Game - " + localStorage["tetris.username"];
-    document.getElementById("username-span").textContent = localStorage["tetris.username"];
-
-    field.size.x = 10;
-    field.size.y = 20;
-    field.object = createRandomObject();
-    field.nextObject = createRandomObject();
-    field.rows = new Array(field.size.y);
-
-    for (let y = 0; y < field.size.y; ++y) {
-        field.rows[y] = new Array(field.size.x);
-        for (let x = 0; x < field.size.x; ++x) {
-            field.rows[y][x] = {color: "white", block: false};
-        }
-    }
-
-    onUpdate();
+function selectNextTetramino() {
+    fallingTetramino = nextFallingTetramino;
+    nextFallingTetramino = Tetramino.createRandomTetramino(new Position(random(2, field.size.x - 3), 1));
 }
 
 function onUpdate() {
     clearScene();
     drawScene();
-    drawObject();
-    drawNextFigure();
-}
+    drawFallingTetramino();
+    drawNextFallingTetramino();
 
-function getFigureOutOfScreenSide() {
-    for (let i = 0; i < field.object.figure.offsets.length; ++i) {
-        let offset = field.object.figure.offsets[i];
-        let blockX = field.object.position.x + offset.x;
-        let blockY = field.object.position.y + offset.y;
-
-        if (blockX < 0) {
-            return "left";
-        } else if (blockX >= field.size.x) {
-            return "right";
-        } else if (blockY >= field.size.y) {
-            return "bottom";
-        }
-    }
-
-    return "none";
-}
-
-function getFigureCollided() {
-    for (let i = 0; i < field.object.figure.offsets.length; ++i) {
-        let offset = field.object.figure.offsets[i];
-        let blockX = field.object.position.x + offset.x;
-        let blockY = field.object.position.y + offset.y;
-
-        if (field.rows[blockY] !== undefined &&
-            field.rows[blockY][blockX] !== undefined &&
-            field.rows[blockY][blockX].block) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function onLowerFigure() {
-    field.object.position.y += 1;
-
-    if (getFigureOutOfScreenSide() === "bottom" || getFigureCollided()) {
-        field.object.position.y -= 1;
-
-        placeObject();
-        nextObject();
-    }
-
-    console.log(field.object)
+    document.getElementById("score-span").textContent = score;
 }
 
 function clearScene(canvasId = "game") {
@@ -204,26 +214,8 @@ function clearScene(canvasId = "game") {
     }
 }
 
-function drawScene() {
-    for (let y = 0; y < field.size.y; ++y) {
-        for (let x = 0; x < field.size.x; ++x) {
-            const block = field.rows[y][x];
-            drawSquare(x * blockX + 0.5, y * blockY + 0.5, blockX, blockY, block.color);
-        }
-    }
-}
-
-function drawObject() {
-    for (let i = 0; i < field.object.figure.offsets.length; ++i) {
-        const offset = field.object.figure.offsets[i];
-        drawSquare(blockX * (field.object.position.x + offset.x) + 0.5,
-            blockY * (field.object.position.y + offset.y) + 0.5, blockX, blockY, field.object.color);
-    }
-}
-
 function drawSquare(x, y, width, height, fillStyle = "white", strokeStyle = "black", canvasId = "game") {
     const canvas = document.getElementById(canvasId);
-
     if (canvas.getContext) {
         let context = canvas.getContext("2d");
 
@@ -235,69 +227,262 @@ function drawSquare(x, y, width, height, fillStyle = "white", strokeStyle = "bla
     }
 }
 
-function drawNextFigure() {
+function drawScene() {
+    for (let y = tetraminoSpawnZoneSizeY; y < field.size.y; ++y) {
+        for (let x = 0; x < field.size.x; ++x) {
+            drawSquare(x * blockSize.x + 0.5, (y - tetraminoSpawnZoneSizeY) * blockSize.y + 0.5,
+                blockSize.x, blockSize.y, field.getBlock(x, y).color);
+        }
+    }
+}
+
+function drawFallingTetramino() {
+    for (let i = 0; i < fallingTetramino.offsets.length; ++i) {
+        const offset = fallingTetramino.offsets[i];
+        drawSquare(blockSize.x * (fallingTetramino.position.x + offset.x) + 0.5,
+            blockSize.y * (fallingTetramino.position.y + offset.y - tetraminoSpawnZoneSizeY ) + 0.5,
+            blockSize.x, blockSize.y, fallingTetramino.color);
+    }
+}
+
+function drawNextFallingTetramino() {
     clearScene("next-figure-canvas");
 
-    for (let i = 0; i < field.nextObject.figure.offsets.length; ++i) {
-        const offset = field.nextObject.figure.offsets[i];
-        drawSquare(blockX * (offset.x + 2) + 0.5,
-            blockY * (offset.y + 2) + 0.5,
-            blockX,
-            blockY,
-            field.nextObject.figure.color,
+    for (let i = 0; i < nextFallingTetramino.offsets.length; ++i) {
+        const offset = nextFallingTetramino.offsets[i];
+        drawSquare(blockSize.x * (offset.x + 2) + 0.5,
+            blockSize.y * (offset.y + 2) + 0.5,
+            blockSize.x, blockSize.y,
+            nextFallingTetramino.color,
             "black",
             "next-figure-canvas");
     }
 }
 
+function getTetraminoOutOfScreenSide() {
+    let sides = [];
+
+    for (let i = 0; i < fallingTetramino.offsets.length; ++i) {
+        const offset = fallingTetramino.offsets[i];
+        const blockX = fallingTetramino.position.x + offset.x;
+        const blockY = fallingTetramino.position.y + offset.y;
+
+        if (blockX < 0) {
+            sides.push("left");
+        } else if (blockX >= field.size.x) {
+            sides.push("right");
+        } else if (blockY >= field.size.y) {
+            sides.push("bottom");
+        } else if (blockY < 0) {
+            sides.push("top");
+        }
+    }
+
+    if (sides.includes("bottom")) {
+        return "bottom";
+    } else if (sides.includes("left")) {
+        return "left";
+    } else if (sides.includes("right")) {
+        return "right";
+    } else if (sides.includes("top")) {
+        return "top";
+    }
+
+    return "none";
+}
+
+function isTetraminoCollided() {
+    for (let i = 0; i < fallingTetramino.offsets.length; ++i) {
+        const offset = fallingTetramino.offsets[i];
+        const blockX = fallingTetramino.position.x + offset.x;
+        const blockY = fallingTetramino.position.y + offset.y;
+        const block = field.getBlock(blockX, blockY);
+
+        if (block === undefined || field.rows[blockY][blockX].occupied) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isTetraminoLanded() {
+    for (let i = 0; i < fallingTetramino.offsets.length; ++i) {
+        const offset = fallingTetramino.offsets[i];
+        const blockX = fallingTetramino.position.x + offset.x;
+        const blockY = fallingTetramino.position.y + offset.y + 1;
+        const block = field.getBlock(blockX, blockY);
+
+        if (block === undefined || field.rows[blockY][blockX].occupied) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isTetraminoInSpawnZone() {
+    for (let i = 0; i < fallingTetramino.offsets.length; ++i) {
+        const offset = fallingTetramino.offsets[i];
+        const blockY = fallingTetramino.position.y + offset.y;
+
+        if (blockY < tetraminoSpawnZoneSizeY) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function tryMoveFallingTetramino(direction = undefined) {
+    let previousPosition = new Position(fallingTetramino.position.x, fallingTetramino.position.y);
+
+    switch (direction) {
+        case "up":
+            fallingTetramino.position.y -= 1;
+            break;
+        case "down":
+            fallingTetramino.position.y += 1;
+            break;
+        case "left":
+            fallingTetramino.position.x -= 1;
+            break;
+        case "right":
+            fallingTetramino.position.x += 1;
+            break;
+        default:
+            return;
+    }
+
+    if (getTetraminoOutOfScreenSide() !== "none" || isTetraminoCollided()) {
+        fallingTetramino.position = previousPosition;
+
+        if (isTetraminoLanded()) {
+            if (isTetraminoInSpawnZone()) {
+                endGame();
+            } else {
+                placeTetramino(fallingTetramino);
+                selectNextTetramino();
+            }
+        }
+    }
+}
+
+function tryRotateFallingTetramino(angle) {
+    let previousOffsets = new Array(fallingTetramino.offsets.length);
+
+    for (let i = 0; i < fallingTetramino.offsets.length; ++i) {
+        const offset = fallingTetramino.offsets[i];
+        previousOffsets[i] = new Offset(offset.x, offset.y);
+    }
+
+    rotateTetramino(fallingTetramino, angle);
+
+    if (getTetraminoOutOfScreenSide() !== "none" || isTetraminoCollided()) {
+        fallingTetramino.offsets = previousOffsets;
+
+        if (isTetraminoLanded()) {
+            if (isTetraminoInSpawnZone()) {
+                endGame();
+            } else {
+                placeTetramino(fallingTetramino);
+                selectNextTetramino();
+            }
+        }
+    }
+}
+
+function downRows(rowY) {
+    rowY = Math.min(rowY, field.size.y - 1);
+
+    for (let y = rowY - 1; y >= 0; --y) {
+        for (let x = 0; x < field.size.x; ++x) {
+            field.getBlock(x, y + 1).color = field.getBlock(x, y).color;
+            field.getBlock(x, y + 1).occupied = field.getBlock(x, y).occupied;
+        }
+    }
+
+    for (let x = 0; x < field.size.x; ++x) {
+        field.setBlock(x, 0, new Block());
+    }
+}
+
+function checkRowsFullness() {
+    let fullRowsCount = 0;
+
+    for (let y = 0; y < field.size.y; ++y) {
+        let occupiedBlockCount = 0;
+
+        for (let x = 0; x < field.size.x; ++x) {
+            if (field.getBlock(x, y).occupied) {
+                ++occupiedBlockCount;
+            }
+        }
+
+        if (occupiedBlockCount === field.size.x) {
+            downRows(y);
+            ++fullRowsCount;
+            score += fullRowsCount * field.size.x;
+        }
+    }
+}
+
+function endGame() {
+    clearInterval(updateInterval);
+    clearInterval(fallInterval);
+    alert("Game over!");
+    onPageLoad();
+}
+
+function onTetraminoFall() {
+    tryMoveFallingTetramino("down");
+}
+
+function onMoveRight() {
+    tryMoveFallingTetramino("right");
+}
+
+function onMoveLeft() {
+    tryMoveFallingTetramino("left");
+}
+
+// Button press handler
 document.addEventListener('keydown', (event) => {
-    if (keyPressed) {
-        return;
-    }
-
-    keyPressed = true;
-
-    const prevPos = {x: 0, y: 0};
-    const prevOffsets = [];
-    prevPos.x = field.object.position.x;
-    prevPos.y = field.object.position.y;
-    for (let i = 0; i < field.object.figure.offsets.length; ++i) {
-        let offsetCopy = {x: 0, y: 0};
-        let offset = field.object.figure.offsets[i];
-        offsetCopy.x = offset.x;
-        offsetCopy.y = offset.y;
-        prevOffsets.push(offsetCopy);
-    }
-
-    if (event.key === "s") {
+    if (event.code === "KeyS" && !fallKeyPressed) {
         fallKeyPressed = true;
-        clearInterval(fallInterval.valueOf());
-        fallInterval = setInterval(onLowerFigure, 50);
-    } else if (event.key === "d") {
-        leftInterval = setInterval()
-        field.object.position.x += 1;
-    } else if (event.key === "a") {
-        field.object.position.x -= 1;
-    } else if (event.key === "q") {
-        rotateObject(field.object, "left");
-    } else if (event.key === "e") {
-        rotateObject(field.object, "right");
-    }
-
-    if (getFigureOutOfScreenSide() !== "none" || getFigureCollided()) {
-        field.object.position = prevPos;
-        field.object.figure.offsets = prevOffsets;
+        onTetraminoFall();
+        clearInterval(fallInterval);
+        fallInterval = setInterval(onTetraminoFall, 40);
+    } else if (event.code === "KeyD" && !rightKeyPressed) {
+        rightKeyPressed = true;
+        onMoveRight();
+        rightInterval = setInterval(onMoveRight, leftRightTimeout)
+    } else if (event.code === "KeyA" && !leftKeyPressed) {
+        leftKeyPressed = true;
+        onMoveLeft();
+        leftInterval = setInterval(onMoveLeft, leftRightTimeout);
+    } else if (event.code === "KeyQ" && !keyPressed) {
+        keyPressed = true;
+        tryRotateFallingTetramino(-90);
+    } else if (event.code === "KeyE" && !keyPressed) {
+        keyPressed = true;
+        tryRotateFallingTetramino(90);
     }
 });
 
+// Button release handler
 document.addEventListener('keyup', (event) => {
-    if (keyPressed) {
+    if (event.code === "KeyS" && fallKeyPressed) {
+        fallKeyPressed = false;
+        clearInterval(fallInterval);
+        fallInterval = setInterval(onTetraminoFall, fallTimeout);
+    } else if (event.code === "KeyD" && rightKeyPressed) {
+        rightKeyPressed = false;
+        clearInterval(rightInterval);
+    } else if (event.code === "KeyA" && leftKeyPressed) {
+        leftKeyPressed = false;
+        clearInterval(leftInterval);
+    } else if (event.code === "KeyQ" || event.code === "KeyE") {
         keyPressed = false;
-
-        if (fallKeyPressed) {
-            fallKeyPressed = false;
-            clearInterval(fallInterval.valueOf());
-            fallInterval = setInterval(onLowerFigure, 500);
-        }
     }
 });
