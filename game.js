@@ -10,7 +10,6 @@ const Offset = Vector2D;
 const Position = Vector2D;
 const blockSize = new Size(30, 30);
 const blockColors = ["red", "green", "blue", "yellow"];
-const fallTimeout = 500;
 const updateTimeout = 50;
 const leftRightTimeout = 200;
 const tetraminoSpawnZoneSizeY = 4;
@@ -19,10 +18,15 @@ let keyPressed = false;
 let fallKeyPressed = false;
 let leftKeyPressed = false;
 let rightKeyPressed = false;
+let fallAudio = undefined;
+let rowAudio = undefined;
 let score = undefined;
+let level = undefined;
 let field = undefined;
+let username = undefined;
 let fallingTetramino = undefined;
 let nextFallingTetramino = undefined;
+let fallTimeout = undefined;
 let leftInterval = undefined;
 let rightInterval = undefined;
 let fallInterval = undefined;
@@ -128,16 +132,38 @@ class Tetramino {
 
 function onPageLoad() {
     score = 0;
-    document.title = "Tetris Game - " + localStorage["tetris.username"];
-    document.getElementById("username-span").textContent = localStorage["tetris.username"];
+    level = 1;
+    username = localStorage["tetris.username"];
+    document.title = "Tetris Game - " + username;
+    document.getElementById("username-span").textContent = username;
+    document.getElementById("level-span").textContent = level;
 
+    setFallTimeout();
+
+    fallAudio = new Audio("/audio/fell.mp3");
+    rowAudio = new Audio("/audio/row.mp3");
     field = new Field(new Size(10, 20 + tetraminoSpawnZoneSizeY));
-    fallingTetramino = Tetramino.createRandomTetramino(new Position(random(2, field.size.x - 3), 1));
-    nextFallingTetramino = Tetramino.createRandomTetramino(new Position(random(2, field.size.x - 3), 1));
+    fallingTetramino = Tetramino.createRandomTetramino(new Position(Math.round(field.size.x / 2), 1));
+    nextFallingTetramino = Tetramino.createRandomTetramino(new Position(Math.round(field.size.x / 2), 1));
     fallInterval = setInterval(onTetraminoFall, fallTimeout);
     updateInterval = setInterval(onUpdate, updateTimeout);
 
     onUpdate();
+}
+
+function setFallTimeout() {
+    fallTimeout = 1000 * (1 / Math.sqrt(level));
+}
+
+function updateScore(value) {
+    score = value;
+
+    if (score > level * 100) {
+        ++level;
+        document.getElementById("level-span").textContent = level;
+    }
+
+    document.getElementById("score-span").textContent = score;
 }
 
 function random(min, max) {
@@ -190,12 +216,13 @@ function placeTetramino() {
         field.getBlock(blockX, blockY).color = fallingTetramino.color;
     }
 
+    fallAudio.play();
     checkRowsFullness();
 }
 
 function selectNextTetramino() {
     fallingTetramino = nextFallingTetramino;
-    nextFallingTetramino = Tetramino.createRandomTetramino(new Position(random(2, field.size.x - 3), 1));
+    nextFallingTetramino = Tetramino.createRandomTetramino(new Position(Math.round(field.size.x / 2), 1));
 }
 
 function onUpdate() {
@@ -203,8 +230,6 @@ function onUpdate() {
     drawScene();
     drawFallingTetramino();
     drawNextFallingTetramino();
-
-    document.getElementById("score-span").textContent = score;
 }
 
 function clearScene(canvasId = "game") {
@@ -246,16 +271,19 @@ function drawFallingTetramino() {
 }
 
 function drawNextFallingTetramino() {
-    clearScene("next-figure-canvas");
+    for (let y = 0; y < 3; ++y) {
+        for (let x = 0; x < 4; ++x) {
+            let div = document.getElementById(`square${x}${y}`);
+            div.style.backgroundColor = "white";
+        }
+    }
 
     for (let i = 0; i < nextFallingTetramino.offsets.length; ++i) {
         const offset = nextFallingTetramino.offsets[i];
-        drawSquare(blockSize.x * (offset.x + 2) + 0.5,
-            blockSize.y * (offset.y + 2) + 0.5,
-            blockSize.x, blockSize.y,
-            nextFallingTetramino.color,
-            "black",
-            "next-figure-canvas");
+        const squareX = offset.x + 1;
+        const squareY = offset.y + 1;
+        let div = document.getElementById(`square${squareX}${squareY}`);
+        div.style.backgroundColor = nextFallingTetramino.color;
     }
 }
 
@@ -422,16 +450,25 @@ function checkRowsFullness() {
         if (occupiedBlockCount === field.size.x) {
             downRows(y);
             ++fullRowsCount;
-            score += fullRowsCount * field.size.x;
+            updateScore(score + fullRowsCount * field.size.x);
+            rowAudio.play();
         }
     }
 }
 
 function endGame() {
+    onUpdate();
     clearInterval(updateInterval);
     clearInterval(fallInterval);
+
     alert("Game over!");
-    onPageLoad();
+
+    let records = (window.localStorage["tetris.records"])? JSON.parse(window.localStorage["tetris.records"]) : {};
+    if (!records[`${username}`] || records[`${username}`] < score) {
+        records[`${username}`] = score;
+    }
+    window.localStorage["tetris.records"] = JSON.stringify(records);
+    document.location.href = "https://localhost/records.html";
 }
 
 function onTetraminoFall() {

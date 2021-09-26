@@ -4,14 +4,14 @@
 	<head>
 		<title>Tetris Game</title>
 		<meta charset="utf-8">
-
 		<script type="text/javascript">
 			let username = "Player";
+			let level = 1;
 
 			function onChangeUsername() {
 				username = document.getElementById("username-input").value;
 
-				if (username === "") {
+				if (!username || username === "") {
 					username = "Player";
 				}
 
@@ -30,8 +30,6 @@
 				<label for="username-input">
 					Введите имя игрока:<br>
 				</label>
-			</div>
-			<div style="padding: 2px;">
 				<input style="width: 192px" id="username-input" type="text" placeholder="Player" onchange="onChangeUsername()"><br>
 			</div>
 			<div style="padding: 2px;">
