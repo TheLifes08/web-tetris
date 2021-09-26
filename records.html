@@ -9,11 +9,16 @@
                 createRecordsTable()
             }
 
+            function addCell(row, text) {
+                let cell = row.insertCell();
+                cell.style.border = "1px solid black";
+                cell.style.textAlign = "center";
+                cell.appendChild(document.createTextNode(text));
+            }
+
             function createRecordsTable(){
                 let records = JSON.parse(window.localStorage["tetris.records"]);
                 let table = document.getElementById("records-table");
-                table.style.width  = "300px";
-                table.style.border = "1px solid black";
                 let rows = []
 
                 for (let player in records) {
@@ -26,14 +31,8 @@
 
                 for (let i = 0; i < rows.length; ++i) {
                     let row = table.insertRow();
-                    let cellName = row.insertCell();
-                    let cellScore = row.insertCell();
-                    cellName.appendChild(document.createTextNode(rows[i].username));
-                    cellName.style.border = "1px solid black";
-                    cellName.style.textAlign = "center";
-                    cellScore.appendChild(document.createTextNode(rows[i].score));
-                    cellScore.style.border = "1px solid black";
-                    cellScore.style.textAlign = "center";
+                    addCell(row, rows[i].username);
+                    addCell(row, rows[i].score);
                 }
             }
 
@@ -44,16 +43,18 @@
     </head>
 
     <body onload="onLoad()">
-        <span>Таблица рекордов:</span><br>
-        <table id="records-table" style="margin: 5px;">
-            <tr>
-                <th>Игрок</th>
-                <th>Очки</th>
-            </tr>
-            <tbody></tbody>
-        </table>
-        <div style="padding: 2px;">
-            <button style="width: 200px;" onclick="redirectToGame()">Играть заново</button>
+        <div style="margin: auto; width: 310px;">
+            <span>Таблица рекордов:</span><br>
+            <table id="records-table" style="margin: 5px; width: 300px; border: 1px solid black;">
+                <tr>
+                    <th>Игрок</th>
+                    <th>Очки</th>
+                </tr>
+                <tbody></tbody>
+            </table>
+            <div style="width: 200px; padding: 2px; margin: auto;">
+                <button style="width: 200px;" onclick="redirectToGame()">Играть заново</button>
+            </div>
         </div>
     </body>
 </html>
