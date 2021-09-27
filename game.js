@@ -14,6 +14,7 @@ const updateTimeout = 50;
 const leftRightTimeout = 200;
 const tetraminoSpawnZoneSizeY = 4;
 
+let gameOver = false;
 let keyPressed = false;
 let fallKeyPressed = false;
 let leftKeyPressed = false;
@@ -457,8 +458,12 @@ function checkRowsFullness() {
 }
 
 function endGame() {
+    gameOver = true;
+
     onUpdate();
     clearInterval(updateInterval);
+    clearInterval(rightInterval);
+    clearInterval(leftInterval);
     clearInterval(fallInterval);
 
     alert("Game over!");
@@ -485,6 +490,10 @@ function onMoveLeft() {
 
 // Button press handler
 document.addEventListener('keydown', (event) => {
+    if (gameOver) {
+        return;
+    }
+
     if (event.code === "KeyS" && !fallKeyPressed) {
         fallKeyPressed = true;
         onTetraminoFall();
@@ -509,6 +518,10 @@ document.addEventListener('keydown', (event) => {
 
 // Button release handler
 document.addEventListener('keyup', (event) => {
+    if (gameOver) {
+        return;
+    }
+
     if (event.code === "KeyS" && fallKeyPressed) {
         fallKeyPressed = false;
         clearInterval(fallInterval);
